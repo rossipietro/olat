@@ -1,6 +1,6 @@
-import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS } from './utils.js'; // Import ZIELNIVEAU_DESCRIPTIONS
+import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS } from './utils.js';
 import { callApi, extractContentAndTokens } from './api.js';
-import { initializeQuestionCheckboxes, switchProviderConfig, handleImageUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload } from './ui.js';
+import { initializeQuestionCheckboxes, switchProviderConfig, handleImageUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState } from './ui.js'; // Import setButtonLoadingState
 
 // App constants
 const QUESTION_TYPES = [
@@ -42,60 +42,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Handlers ---
 
-    // START: UPDATED onGenerateGoals FUNCTION
     async function onGenerateGoals() {
         if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
-        showSpinner(true, elements);
-        
-        const niveauKey = elements.zielniveau.value;
-        const niveauDescription = ZIELNIVEAU_DESCRIPTIONS[niveauKey]?.description;
 
-        const prompt = `Analysiere den bereitgestellten Inhalt und generiere 3-5 Lernziele.
-        Formuliere die Lernziele als "Die Lernenden können...".
-        Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${niveauDescription}"`;
-        
-        // Context for assembleFullPrompt does not need the detailed description,
-        // as the function now handles that itself. We just pass the key.
-        const context = {
-            language: elements.language.value,
-            zielniveau: niveauKey,
-            goals: "", // No goals provided when generating goals
-            text: elements.userInput.value
-        };
-        
-        // Note: The 'prompt' variable here is different from the base prompts for questions.
-        // We are creating a special, one-off prompt for this specific function.
-        // We still use assembleFullPrompt to add the material context.
-        const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
+        setButtonLoadingState(elements.generateGoalsBtn, true);
 
-        const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
-        if (text) elements.learningGoals.value = text;
-        updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
-        showSpinner(false, elements);
+        try {
+            const niveauKey = elements.zielniveau.value;
+            const niveauDescription = ZIELNIVEAU_DESCRIPTIONS[niveauKey]?.description;
+            const prompt = `Analysiere den bereitgestellten Inhalt und generiere 3-5 Lernziele.
+Formuliere die Lernziele als "Die Lernenden können...".
+Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${niveauDescription}"`;
+
+            const context = {
+                language: elements.language.value,
+                zielniveau: niveauKey,
+                goals: "", // No goals provided when generating goals
+                text: elements.userInput.value
+            };
+
+            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
+            const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
+            if (text) elements.learningGoals.value = text;
+            updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
+
+        } catch (error) {
+            console.error("Failed to generate learning goals:", error);
+            alert(`Fehler beim Generieren der Lernziele: ${error.message}`);
+        } finally {
+            setButtonLoadingState(elements.generateGoalsBtn, false);
+        }
     }
-    // END: UPDATED onGenerateGoals FUNCTION
 
     async function onExploreTopics() {
         if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
-        showSpinner(true, elements);
-        elements.topicExplorerResultsContainer.innerHTML = '';
-        const prompt = `Analysiere den bereitgestellten Text und/oder die Bilder. Schlage 3-5 verwandte Themen oder Konzepte vor. Formatiere als sauberes HTML mit <h4> und <p> Tags. Gib NUR das HTML aus.`;
-        const context = {
-            language: elements.language.value,
-            zielniveau: elements.zielniveau.value,
-            goals: "",
-            text: elements.userInput.value
-        };
-        const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
 
-        const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
-        if (text) elements.topicExplorerResultsContainer.innerHTML = `<h3 class="text-lg font-semibold mb-2 text-indigo-700">✨ Verwandte Themen</h3><div class="p-4 bg-indigo-50 rounded-md">${text}</div>`;
-        updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
-        showSpinner(false, elements);
+        setButtonLoadingState(elements.exploreTopicsBtn, true);
+        elements.topicExplorerResultsContainer.innerHTML = ''; // Clear previous results
+
+        try {
+            const prompt = `Analysiere den bereitgestellten Text und/oder die Bilder. Schlage 3-5 verwandte Themen oder Konzepte vor. Formatiere als sauberes HTML mit <h4> und <p> Tags. Gib NUR das HTML aus.`;
+            const context = {
+                language: elements.language.value,
+                zielniveau: elements.zielniveau.value,
+                goals: "",
+                text: elements.userInput.value
+            };
+            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
+
+            const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
+            if (text) {
+                elements.topicExplorerResultsContainer.innerHTML = `<h3 class="text-lg font-semibold mb-2 text-indigo-700">✨ Verwandte Themen</h3><div class="p-4 bg-indigo-50 rounded-md">${text}</div>`;
+            }
+            updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
+        } catch (error) {
+            console.error("Failed to explore topics:", error);
+            alert(`Fehler beim Erforschen der Themen: ${error.message}`);
+        } finally {
+            setButtonLoadingState(elements.exploreTopicsBtn, false);
+        }
     }
 
     async function onGenerateQuestions() {
@@ -104,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return alert("Bitte geben Sie Material ein und wählen Sie mindestens einen Fragetyp.");
         }
 
-        showSpinner(true, elements);
+        showSpinner(true, elements); // Use the main spinner for this primary action
         let allGeneratedResponses = '';
         let totalInputTokens = 0, totalOutputTokens = 0;
 
@@ -114,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const context = {
                 language: elements.language.value,
-                zielniveau: elements.zielniveau.value, // This is now a key like 'B2'
+                zielniveau: elements.zielniveau.value,
                 goals: elements.learningGoals.value,
                 text: elements.userInput.value
             };
@@ -125,7 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
             totalInputTokens += inputTokens;
             totalOutputTokens += outputTokens;
 
-            // === USE THE NEW FORMATTER FOR THE 'inline_fib' TYPE ===
             if (type === 'inline_fib' && text && text.includes('```json')) {
                 text = formatInlineFibOutput(text);
             }
