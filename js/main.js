@@ -1,10 +1,10 @@
-import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys } from './utils.js';
+import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput } from './utils.js';
 import { callApi, extractContentAndTokens } from './api.js';
 import { initializeQuestionCheckboxes, switchProviderConfig, handleImageUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload } from './ui.js';
 
 // App constants
 const QUESTION_TYPES = [
-    "single_choice", "multiple_choice1", "multiple_choice2", "multiple_choice3", 
+    "single_choice", "multiple_choice1", "multiple_choice2", "multiple_choice3",
     "kprim", "truefalse", "draganddrop", "inline_fib"
 ];
 
@@ -41,7 +41,7 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Handlers ---
-    
+
     async function onGenerateGoals() {
         if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             text: elements.userInput.value
         };
         const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
-        
+
         const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
         if (text) elements.learningGoals.value = text;
         updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const type of selectedTypes) {
             const basePrompt = await fetchPromptForType(type, promptCache);
             if (!basePrompt) continue;
-            
+
             const context = {
                 language: elements.language.value,
                 zielniveau: elements.zielniveau.value,
@@ -105,22 +105,27 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             const fullPrompt = assembleFullPrompt(basePrompt, context);
             const resultData = await callApi(elements.providerSelect.value, fullPrompt, uploadedImages);
-            const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
-            
+            let { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
+
             totalInputTokens += inputTokens;
             totalOutputTokens += outputTokens;
 
+            // === USE THE NEW FORMATTER FOR THE 'inline_fib' TYPE ===
+            if (type === 'inline_fib' && text && text.includes('```json')) {
+                text = formatInlineFibOutput(text);
+            }
+
             allGeneratedResponses += text ? `## ${type.replace(/_/g, ' ').toUpperCase()} ##\n\n${text}\n\n---\n\n` : `## FEHLER FÜR ${type.toUpperCase()} ##\nKeine Antwort vom Server erhalten.\n\n---\n\n`;
         }
-        
+
         elements.allResponsesContainer.textContent = allGeneratedResponses;
         updateTokenCount(elements.tokenUsageContainer, totalInputTokens, totalOutputTokens);
         elements.downloadBtn.style.display = allGeneratedResponses ? 'block' : 'none';
         showSpinner(false, elements);
     }
-    
+
     // --- Initial Setup ---
-    
+
     initializeQuestionCheckboxes(QUESTION_TYPES, elements.questionTypesContainer);
     switchProviderConfig(elements.providerSelect.value);
     elements.saveKeysCheckbox.checked = loadApiKeys();
@@ -136,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.exploreTopicsBtn.addEventListener('click', onExploreTopics);
     elements.generateQuestionsBtn.addEventListener('click', onGenerateQuestions);
     elements.downloadBtn.addEventListener('click', () => handleDownload(elements.allResponsesContainer.textContent));
-    
+
     elements.saveKeysCheckbox.addEventListener('change', (e) => {
         if (e.target.checked) {
             saveApiKeys(true);

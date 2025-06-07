@@ -68,3 +68,87 @@ export function loadApiKeys() {
     if (savedKeys.deepseek) document.getElementById('deepseek_api_key').value = savedKeys.deepseek;
     return true; // Return true if preference was set
 }
+
+// === NEW FUNCTION TO FORMAT THE INLINE FIB OUTPUT ===
+
+/**
+ * Transforms the raw JSON string from an Inline FIB response into two formatted text blocks.
+ * @param {string} rawJsonString The raw string output from the LLM.
+ * @returns {string} The formatted text output, or an error message.
+ */
+export function formatInlineFibOutput(rawJsonString) {
+    // 1. Clean and parse the JSON
+    let data;
+    try {
+        // Extract content from markdown code block if present
+        const match = rawJsonString.match(/```json\s*([\s\S]*?)\s*```/);
+        const cleanString = match ? match[1] : rawJsonString;
+        data = JSON.parse(cleanString);
+    } catch (error) {
+        console.error("JSON parsing failed:", error);
+        return `Fehler: Ungültiges JSON-Format im Inline FIB Output.\n\nOriginal-Output:\n${rawJsonString}`;
+    }
+
+    const fibOutput = [];
+    const icOutput = [];
+
+    // Helper to shuffle arrays for the Inlinechoice options
+    const shuffleArray = (array) => {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    };
+
+    // 2. Process each item in the JSON array
+    data.forEach(item => {
+        const { text = '', blanks = [], wrong_substitutes = [] } = item;
+        const numBlanks = blanks.length;
+        if (numBlanks === 0) return; // Skip items with no blanks
+
+        // Create a version of the text with placeholders
+        const placeholder = "||BLANK||";
+        let tempText = text;
+        blanks.forEach(blank => {
+            // Use a regex to replace only the first occurrence to handle duplicate blank words
+            tempText = tempText.replace(new RegExp(blank.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i'), placeholder, 1);
+        });
+        const textParts = tempText.split(placeholder);
+
+        // --- Build FIB (Fill-In-the-Blank) Output ---
+        const fibLines = [
+            "Type\tFIB",
+            "Title\t✏✏Vervollständigen Sie die Lücken mit dem korrekten Begriff.✏✏",
+            `Points\t${numBlanks}`
+        ];
+        textParts.forEach((part, index) => {
+            fibLines.push(`Text\t${part.trim()}`);
+            if (index < blanks.length) {
+                fibLines.push(`1\t${blanks[index]}\t20`);
+            }
+        });
+        fibOutput.push(fibLines.join('\n'));
+
+        // --- Build Inlinechoice Output ---
+        const icLines = [
+            "Type\tInlinechoice",
+            "Title\tWörter einordnen",
+            "Question\t✏✏Wählen Sie die richtigen Wörter.✏✏",
+            `Points\t${numBlanks}`
+        ];
+        const allOptions = [...blanks, ...wrong_substitutes];
+        shuffleArray(allOptions);
+        const optionsStr = allOptions.join('|');
+
+        textParts.forEach((part, index) => {
+            icLines.push(`Text\t${part.trim()}`);
+            if (index < blanks.length) {
+                icLines.push(`1\t${optionsStr}\t${blanks[index]}\t|`);
+            }
+        });
+        icOutput.push(icLines.join('\n'));
+    });
+
+    // 3. Combine and return the final string
+    return `${icOutput.join('\n\n')}\n\n---\n\n${fibOutput.join('\n\n')}`;
+}
