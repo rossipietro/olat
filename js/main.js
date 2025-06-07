@@ -1,6 +1,3 @@
-================================================
-FILE: js/main.js
-================================================
 import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS } from './utils.js'; // Import ZIELNIVEAU_DESCRIPTIONS
 import { callApi, extractContentAndTokens } from './api.js';
 import { initializeQuestionCheckboxes, switchProviderConfig, handleImageUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload } from './ui.js';

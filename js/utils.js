@@ -1,6 +1,3 @@
-================================================
-FILE: js/utils.js
-================================================
 /**
  * Cleans German-specific characters from a string.
  * @param {string} text The input text.
