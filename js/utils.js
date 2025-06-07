@@ -1,3 +1,6 @@
+================================================
+FILE: js/utils.js
+================================================
 /**
  * Cleans German-specific characters from a string.
  * @param {string} text The input text.
@@ -7,6 +10,34 @@ export function cleanGermanCharacters(text) {
     if (!text) return "";
     return text.replace(/ß/g, 'ss');
 }
+
+// START: NEW DATA STORE FOR ZIELNIVEAU DESCRIPTIONS
+/**
+ * A store for the detailed descriptions of each target level (Zielniveau).
+ */
+export const ZIELNIVEAU_DESCRIPTIONS = {
+    'A2': {
+        title: '🟢 A2 (elementar / Primarstufe, frühe Sek I)',
+        description: 'Verwende einfache Satzstrukturen und grundlegenden Wortschatz. Die Fragen sollen sich auf vertraute Alltagssituationen beziehen. Verwende visuelle Hilfen, wenn möglich. Halte die Fragen kurz und klar. Vermeide abstrakte Begriffe.'
+    },
+    'B1': {
+        title: '🔵 B1 (untere Sek II, Berufsschule, Realschule)',
+        description: 'Verwende alltagsnahes, aber anspruchsvolleres Vokabular. Die Fragen sollen einfache Schlussfolgerungen und erste Transferleistungen ermöglichen. Verwende konkrete Kontexte (z. B. Schule, Arbeit, Freizeit). Halte sprachliche Komplexität moderat.'
+    },
+    'B2': {
+        title: '🟡 B2 (obere Sek II, Maturität, Bachelorbeginn)',
+        description: 'Verwende akademisch orientierten Wortschatz und moderate sprachliche Komplexität. Die Fragen sollen analytisches und kritisches Denken fördern. Es sind auch hypothetische Szenarien erlaubt. Fremdwörter können vorkommen, aber sollten kontextuell erschließbar sein.'
+    },
+    'C1': {
+        title: '🟠 C1 (Bachelor/Master, Hochschulreife)',
+        description: 'Verwende komplexe Satzstrukturen und einen gehobenen, akademischen Sprachstil. Die Fragen sollen Argumentation, Bewertung und Synthese fördern. Die Lernenden sollen eigenständig Thesen entwickeln und verschiedene Perspektiven vergleichen können.'
+    },
+    'C2': {
+        title: '🔴 C2 (Master/Expertenniveau)',
+        description: 'Verwende präzise, abstrakte und komplexe Sprache. Die Fragen sollen kreative, originelle Denkprozesse anregen und fächerübergreifende Kompetenzen einbeziehen. Es wird ein hohes Maß an Autonomie und metakognitivem Denken vorausgesetzt.'
+    }
+};
+// END: NEW DATA STORE
 
 /**
  * Fetches a prompt from a file, using a cache to avoid re-fetching.
@@ -28,6 +59,7 @@ export async function fetchPromptForType(type, cache) {
     }
 }
 
+// START: UPDATED PROMPT ASSEMBLY FUNCTION
 /**
  * Assembles the full prompt to be sent to the LLM.
  * @param {string} basePrompt The base instruction from the prompt file.
@@ -36,8 +68,11 @@ export async function fetchPromptForType(type, cache) {
  */
 export function assembleFullPrompt(basePrompt, context) {
     const { language, zielniveau, goals, text } = context;
-    return `${basePrompt}\n\n## CONTEXT ##\nLanguage: ${language}\nZielniveau: ${zielniveau}\nLearning Goals: """${goals || 'Keine spezifischen Lernziele vorgegeben.'}"""\n\n## MATERIAL ##\n"""${text}"""`;
+    const niveauDescription = ZIELNIVEAU_DESCRIPTIONS[zielniveau]?.description || 'Kein spezifisches Niveau ausgewählt.';
+
+    return `${basePrompt}\n\n## CONTEXT ##\nLanguage: ${language}\nLearning Goals: """${goals || 'Keine spezifischen Lernziele vorgegeben.'}"""\n\n## ZIELNIVEAU-ANWEISUNG ##\n${niveauDescription}\n\n## MATERIAL ##\n"""${text}"""`;
 }
+// END: UPDATED PROMPT ASSEMBLY FUNCTION
 
 /**
  * Saves API keys to local storage if the user has opted in.

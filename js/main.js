@@ -1,4 +1,7 @@
-import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput } from './utils.js';
+================================================
+FILE: js/main.js
+================================================
+import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS } from './utils.js'; // Import ZIELNIVEAU_DESCRIPTIONS
 import { callApi, extractContentAndTokens } from './api.js';
 import { initializeQuestionCheckboxes, switchProviderConfig, handleImageUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload } from './ui.js';
 
@@ -42,18 +45,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Handlers ---
 
+    // START: UPDATED onGenerateGoals FUNCTION
     async function onGenerateGoals() {
         if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
         showSpinner(true, elements);
-        const prompt = `Analysiere den Inhalt und generiere 3-5 Lernziele für das Niveau "${elements.zielniveau.value}". Formuliere sie als "Die Lernenden können...".`;
+        
+        const niveauKey = elements.zielniveau.value;
+        const niveauDescription = ZIELNIVEAU_DESCRIPTIONS[niveauKey]?.description;
+
+        const prompt = `Analysiere den bereitgestellten Inhalt und generiere 3-5 Lernziele.
+        Formuliere die Lernziele als "Die Lernenden können...".
+        Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${niveauDescription}"`;
+        
+        // Context for assembleFullPrompt does not need the detailed description,
+        // as the function now handles that itself. We just pass the key.
         const context = {
             language: elements.language.value,
-            zielniveau: elements.zielniveau.value,
-            goals: "",
+            zielniveau: niveauKey,
+            goals: "", // No goals provided when generating goals
             text: elements.userInput.value
         };
+        
+        // Note: The 'prompt' variable here is different from the base prompts for questions.
+        // We are creating a special, one-off prompt for this specific function.
+        // We still use assembleFullPrompt to add the material context.
         const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
 
         const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
@@ -61,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
         showSpinner(false, elements);
     }
+    // END: UPDATED onGenerateGoals FUNCTION
 
     async function onExploreTopics() {
         if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
@@ -99,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const context = {
                 language: elements.language.value,
-                zielniveau: elements.zielniveau.value,
+                zielniveau: elements.zielniveau.value, // This is now a key like 'B2'
                 goals: elements.learningGoals.value,
                 text: elements.userInput.value
             };
