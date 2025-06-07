@@ -14,7 +14,7 @@
     <script src="js/main.js" type="module" defer></script>
 
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-900">
 
     <div class="flex flex-col lg:flex-row min-h-screen">
         <aside class="w-full lg:w-1/3 xl:w-1/4 bg-white p-6 border-r border-gray-200 shadow-lg">
@@ -104,11 +104,11 @@
             <div class="flex flex-col md:flex-row gap-6">
                 <div class="w-full md:w-2/3 space-y-4">
                     <div>
-                        <label for="user_input" class="block text-sm font-medium text-gray-700">Geben Sie hier Ihren Text ein:</label>
+                        <label for="user_input" class="block text-sm font-medium text-gray-300">Geben Sie hier Ihren Text ein:</label>
                         <textarea id="user_input" rows="10" class="mt-1 block w-full p-3 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                     </div>
                      <div>
-                        <label for="learning_goals" class="block text-sm font-medium text-gray-700">Lernziele (optional)</label>
+                        <label for="learning_goals" class="block text-sm font-medium text-gray-300">Lernziele (optional)</label>
                         <div class="flex gap-2">
                              <textarea id="learning_goals" rows="3" class="flex-grow mt-1 block w-full p-3 text-sm border border-gray-300 rounded-md" placeholder="Optionale Lernziele... oder lassen Sie sich welche vorschlagen!"></textarea>
                              <button id="generate-goals-btn" class="gemini-button text-white font-bold py-2 px-4 rounded-md h-full flex items-center justify-center text-center shadow-lg hover:opacity-90">✨<span class="hidden sm:inline ml-2">Lernziel-Assistent</span></button>
@@ -116,18 +116,18 @@
                     </div>
                 </div>
                 <div class="w-full md:w-1/3">
-                    <label class="block text-sm font-medium text-gray-700">Bilder hochladen (bis zu 5)</label>
-                    <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md h-full">
+                    <label class="block text-sm font-medium text-gray-300">Bilder hochladen (bis zu 5)</label>
+                    <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-600 border-dashed rounded-md h-full">
                         <div class="space-y-1 text-center">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                            <div class="flex text-sm text-gray-600">
+                            <svg class="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                            <div class="flex text-sm text-gray-400">
                                 <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none">
                                     <span>Dateien auswählen</span>
                                     <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/png, image/jpeg" multiple>
                                 </label>
                                 <p class="pl-1">oder hierher ziehen</p>
                             </div>
-                            <p class="text-xs text-gray-500">PNG, JPG bis 10MB</p>
+                            <p class="text-xs text-gray-400">PNG, JPG bis 10MB</p>
                              <div id="image-previews" class="grid grid-cols-3 gap-2 pt-2"></div>
                         </div>
                     </div>
@@ -135,7 +135,7 @@
             </div>
 
             <div class="mt-6">
-                <button id="explore-topics-btn" class="w-full gemini-button text-white font-bold py-3 px-6 rounded-md shadow-lg hover:opacity-90">✨ Themen-Explorer</button>
+                <button id="explore-topics-btn" class="w-full gemini-button text-white font-bold py-3 px-6 rounded-md shadow-lg hover:opacity-90 flex items-center justify-center">✨ Themen-Explorer</button>
                 <div id="topic-explorer-results" class="mt-4"></div>
             </div>
             
@@ -147,10 +147,10 @@
             </div>
             
             <div id="output-container" class="mt-8 flex-grow">
-                <h2 class="text-xl font-semibold mb-4 text-gray-800">Generierter Inhalt</h2>
+                <h2 class="text-xl font-semibold mb-4 text-gray-200">Generierter Inhalt</h2>
                 <div id="spinner" class="hidden mx-auto my-8 loader"></div>
                 <div id="results-wrapper">
-                    <div id="token-usage" class="text-sm text-right text-gray-600 mb-2"></div>
+                    <div id="token-usage" class="text-sm text-right text-gray-400 mb-2"></div>
                     <div id="results" class="bg-white p-4 rounded-md shadow-sm border min-h-[200px] overflow-x-hidden">
                         <pre id="all-responses" class="whitespace-pre-wrap text-sm text-gray-700"></pre>
                     </div>
