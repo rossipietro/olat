@@ -7,42 +7,49 @@ let uploadedFiles = [];
 let batchFiles = null;
 const promptCache = {};
 
-// DOM Element References
-const elements = {
-    // Sidebar
-    providerSelect: document.getElementById('provider-select'),
-    saveKeysCheckbox: document.getElementById('save-keys-checkbox'),
-    apiKeyInputs: document.querySelectorAll('.api-key-input'),
-    language: document.getElementById('language'),
-    zielniveau: document.getElementById('zielniveau'),
-    historyContainer: document.getElementById('history-container'),
-    
-    // Main Content
-    docUpload: document.getElementById('doc-upload'),
-    docList: document.getElementById('doc-list'),
-    userInput: document.getElementById('user_input'),
-    learningGoals: document.getElementById('learning_goals'),
-    generateGoalsBtn: document.getElementById('generate-goals-btn'),
-    fileUpload: document.getElementById('file-upload'),
-    imagePreviews: document.getElementById('image-previews'),
-    exploreTopicsBtn: document.getElementById('explore-topics-btn'),
-    questionTypesContainer: document.getElementById('question-types'),
-    generateQuestionsBtn: document.getElementById('generate-questions-btn'),
-    
-    // Output
-    batchStatus: document.getElementById('batch-status'),
-    outputContainer: document.getElementById('output-container'),
-    spinner: document.getElementById('spinner'),
-    resultsWrapper: document.getElementById('results-wrapper'),
-    tokenUsageContainer: document.getElementById('token-usage'),
-    allResponsesContainer: document.getElementById('all-responses'),
-    downloadBtn: document.getElementById('download-btn'),
-};
+// App constants
+const QUESTION_TYPES = [
+    "single_choice", "multiple_choice1", "multiple_choice2", "multiple_choice3",
+    "kprim", "truefalse", "draganddrop", "inline_fib"
+];
 
 /**
  * Main application logic starts here, after the DOM is fully loaded.
  */
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- DOM Element References ---
+    // Moved inside DOMContentLoaded for robustness. This ensures all elements exist before we try to find them.
+    const elements = {
+        // Sidebar
+        providerSelect: document.getElementById('provider-select'),
+        saveKeysCheckbox: document.getElementById('save-keys-checkbox'),
+        apiKeyInputs: document.querySelectorAll('.api-key-input'),
+        language: document.getElementById('language'),
+        zielniveau: document.getElementById('zielniveau'),
+        historyContainer: document.getElementById('history-container'),
+        
+        // Main Content
+        docUpload: document.getElementById('doc-upload'),
+        docList: document.getElementById('doc-list'),
+        userInput: document.getElementById('user_input'),
+        learningGoals: document.getElementById('learning_goals'),
+        generateGoalsBtn: document.getElementById('generate-goals-btn'),
+        fileUpload: document.getElementById('file-upload'),
+        imagePreviews: document.getElementById('image-previews'),
+        exploreTopicsBtn: document.getElementById('explore-topics-btn'),
+        questionTypesContainer: document.getElementById('question-types'),
+        generateQuestionsBtn: document.getElementById('generate-questions-btn'),
+        
+        // Output
+        batchStatus: document.getElementById('batch-status'),
+        outputContainer: document.getElementById('output-container'),
+        spinner: document.getElementById('spinner'),
+        resultsWrapper: document.getElementById('results-wrapper'),
+        tokenUsageContainer: document.getElementById('token-usage'),
+        allResponsesContainer: document.getElementById('all-responses'),
+        downloadBtn: document.getElementById('download-btn'),
+    };
 
     // --- Start of Function Definitions ---
 
