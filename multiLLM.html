@@ -10,10 +10,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.1/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;</script>
-    
     <link rel="stylesheet" href="css/styles.css">
     <script src="js/main.js" type="module" defer></script>
 
@@ -21,117 +17,102 @@
 <body class="bg-gray-900">
 
     <div class="flex flex-col lg:flex-row min-h-screen">
-        <aside class="w-full lg:w-1/3 xl:w-1/4 bg-white p-6 border-r border-gray-200 shadow-lg flex flex-col">
-            <div>
-                <h1 class="text-2xl font-bold mb-6 text-gray-800">📝 Fragen Generator</h1>
-                <div id="sidebar-controls" class="space-y-6">
-                    
+        <aside class="w-full lg:w-1/3 xl:w-1/4 bg-white p-6 border-r border-gray-200 shadow-lg">
+            <h1 class="text-2xl font-bold mb-6 text-gray-800">📝 Fragen Generator</h1>
+            <div id="sidebar-controls" class="space-y-6">
+                
+                <div>
+                    <label for="provider-select" class="block text-sm font-medium text-gray-700">Modell-Anbieter</label>
+                    <select id="provider-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="google" selected>Google</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="deepseek">DeepSeek</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="save-keys-checkbox" class="h-4 w-4 text-indigo-600 rounded">
+                    <label for="save-keys-checkbox" class="ml-2 block text-sm text-gray-900">API Schlüssel lokal speichern</label>
+                </div>
+
+                <div id="google-config" class="provider-config active space-y-4">
                     <div>
-                        <label for="provider-select" class="block text-sm font-medium text-gray-700">Modell-Anbieter</label>
-                        <select id="provider-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                            <option value="google" selected>Google</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="deepseek">DeepSeek</option>
+                        <label for="google_api_key" class="block text-sm font-medium text-gray-700">Google (Gemini) API Schlüssel</label>
+                        <input type="password" id="google_api_key" class="api-key-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ihr Google API-Schlüssel">
+                    </div>
+                    <div>
+                        <label for="google-model-select" class="block text-sm font-medium text-gray-700">Gemini Modell</label>
+                        <select id="google-model-select" class="model-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
+                            <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash (Schnell)</option>
+                            <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash (Vorschau)</option>
+                            <option value="gemini-2.5-pro-preview-06-05">Gemini 2.5 Pro (Vorschau)</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="flex items-center">
-                        <input type="checkbox" id="save-keys-checkbox" class="h-4 w-4 text-indigo-600 rounded">
-                        <label for="save-keys-checkbox" class="ml-2 block text-sm text-gray-900">API Schlüssel lokal speichern</label>
-                    </div>
-
-                    <div id="google-config" class="provider-config active space-y-4">
-                        <div>
-                            <label for="google_api_key" class="block text-sm font-medium text-gray-700">Google (Gemini) API Schlüssel</label>
-                            <input type="password" id="google_api_key" class="api-key-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ihr Google API-Schlüssel">
-                        </div>
-                        <div>
-                            <label for="google-model-select" class="block text-sm font-medium text-gray-700">Gemini Modell</label>
-                            <select id="google-model-select" class="model-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
-                                <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash (Schnell)</option>
-                                <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash (Vorschau)</option>
-                                <option value="gemini-2.5-pro-preview-06-05">Gemini 2.5 Pro (Vorschau)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="openai-config" class="provider-config space-y-4">
-                        <div>
-                            <label for="openai_api_key" class="block text-sm font-medium text-gray-700">OpenAI API Schlüssel</label>
-                            <input type="password" id="openai_api_key" class="api-key-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ihr OpenAI API-Schlüssel">
-                        </div>
-                        <div>
-                            <label for="openai-model-select" class="block text-sm font-medium text-gray-700">OpenAI Modell</label>
-                            <select id="openai-model-select" class="model-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
-                                <option value="gpt-4o" selected>GPT-4o</option>
-                                <option value="gpt-4.1">GPT-4.1</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div id="deepseek-config" class="provider-config space-y-4">
-                        <div>
-                            <label for="deepseek_api_key" class="block text-sm font-medium text-gray-700">DeepSeek API Schlüssel</label>
-                            <input type="password" id="deepseek_api_key" class="api-key-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ihr DeepSeek API-Schlüssel">
-                        </div>
-                        <div>
-                            <label for="deepseek-model-select" class="block text-sm font-medium text-gray-700">DeepSeek Modell</label>
-                            <select id="deepseek-model-select" class="model-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
-                                <option value="deepseek-chat" selected>DeepSeek Chat</option>
-                                <option value="deepseek-coder">DeepSeek Coder</option>
-                            </select>
-                        </div>
-                    </div>
-
+                <div id="openai-config" class="provider-config space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Sprache der Fragen</label>
-                        <select id="language" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                            <option value="German" selected>Deutsch</option>
-                            <option value="English">Englisch</option>
+                        <label for="openai_api_key" class="block text-sm font-medium text-gray-700">OpenAI API Schlüssel</label>
+                        <input type="password" id="openai_api_key" class="api-key-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ihr OpenAI API-Schlüssel">
+                    </div>
+                    <div>
+                        <label for="openai-model-select" class="block text-sm font-medium text-gray-700">OpenAI Modell</label>
+                        <select id="openai-model-select" class="model-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
+                            <option value="gpt-4o" selected>GPT-4o</option>
+                            <option value="gpt-4.1">GPT-4.1</option>
                         </select>
                     </div>
-
+                </div>
+                
+                <div id="deepseek-config" class="provider-config space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Zielniveau</label>
-                        <select id="zielniveau" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                            <option value="A2">🟢 A2 (elementar / Primarstufe, frühe Sek I)</option>
-                            <option value="B1">🔵 B1 (untere Sek II, Berufsschule, Realschule)</option>
-                            <option value="B2" selected>🟡 B2 (obere Sek II, Maturität, Bachelorbeginn)</option>
-                            <option value="C1">🟠 C1 (Bachelor/Master, Hochschulreife)</option>
-                            <option value="C2">🔴 C2 (Master/Expertenniveau)</option>
+                        <label for="deepseek_api_key" class="block text-sm font-medium text-gray-700">DeepSeek API Schlüssel</label>
+                        <input type="password" id="deepseek_api_key" class="api-key-input mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Ihr DeepSeek API-Schlüssel">
+                    </div>
+                    <div>
+                        <label for="deepseek-model-select" class="block text-sm font-medium text-gray-700">DeepSeek Modell</label>
+                        <select id="deepseek-model-select" class="model-select mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 rounded-md">
+                            <option value="deepseek-chat" selected>DeepSeek Chat</option>
+                            <option value="deepseek-coder">DeepSeek Coder</option>
                         </select>
                     </div>
+                </div>
 
-                    <div class="pt-6 border-t border-gray-200">
-                        <label class="block text-lg font-semibold text-gray-800">Fragetypen auswählen & generieren</label>
-                        <div id="question-types" class="my-4 grid grid-cols-2 gap-4"></div>
-                        <p class="mt-2 text-xs text-gray-500">* Anmerkung: "Multiple Choice (1/2/3)" bezieht sich auf die Anzahl der korrekten Antworten.</p>
-                        <button id="generate-questions-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-md shadow-lg hover:bg-indigo-700 mt-4">Fragen generieren</button>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Sprache der Fragen</label>
+                    <select id="language" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="German" selected>Deutsch</option>
+                        <option value="English">Englisch</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Zielniveau</label>
+                    <select id="zielniveau" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="A2">🟢 A2 (elementar / Primarstufe, frühe Sek I)</option>
+                        <option value="B1">🔵 B1 (untere Sek II, Berufsschule, Realschule)</option>
+                        <option value="B2" selected>🟡 B2 (obere Sek II, Maturität, Bachelorbeginn)</option>
+                        <option value="C1">🟠 C1 (Bachelor/Master, Hochschulreife)</option>
+                        <option value="C2">🔴 C2 (Master/Expertenniveau)</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="mt-auto pt-6 border-t border-gray-200">
+            <div class="mt-8 pt-6 border-t border-gray-200">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">📝 Verlauf</h2>
-                <div id="history-container" class="space-y-2 max-h-60 overflow-y-auto">
+                <div id="history-container" class="space-y-2 max-h-96 overflow-y-auto">
                     <p class="text-sm text-gray-500" id="history-placeholder">Bisher keine Ausgaben generiert.</p>
                 </div>
             </div>
+
         </aside>
 
         <main class="w-full lg:w-2/3 xl:w-3/4 p-6 lg:p-8 flex flex-col">
             
-            <div class="mb-6 p-4 border border-gray-600 rounded-md bg-gray-800">
-                <label for="doc-upload" class="block text-lg font-semibold text-gray-200">📚 Batch-Verarbeitung</label>
-                <p class="text-sm text-gray-400 mt-1 mb-3">Laden Sie mehrere Dokumente (.txt, .pdf, .docx) hoch, um sie nacheinander zu verarbeiten. Der Text-Input und Multimedia-Upload unten werden dabei ignoriert.</p>
-                <input type="file" id="doc-upload" accept=".txt,.pdf,.doc,.docx" multiple class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-500 file:text-white hover:file:bg-indigo-600">
-                <ul id="doc-list" class="mt-3 list-disc list-inside text-gray-300"></ul>
-            </div>
-
             <div class="flex flex-col md:flex-row gap-6">
                 <div class="w-full md:w-2/3 space-y-4">
                     <div>
-                        <label for="user_input" class="block text-sm font-medium text-gray-300">Geben Sie hier Ihren Text ein (Einzelmodus):</label>
+                        <label for="user_input" class="block text-sm font-medium text-gray-300">Geben Sie hier Ihren Text ein:</label>
                         <textarea id="user_input" rows="10" class="mt-1 block w-full p-3 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                     </div>
                      <div>
@@ -143,7 +124,7 @@
                     </div>
                 </div>
                 <div class="w-full md:w-1/3">
-                    <label class="block text-sm font-medium text-gray-300">Multimedia-Upload (Einzelmodus)</label>
+                    <label class="block text-sm font-medium text-gray-300">Bilder, Audio & Video (max 5 Dateien, 1 Video)</label>
                     <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-600 border-dashed rounded-md h-full">
                         <div class="space-y-1 text-center">
                             <svg class="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
@@ -166,9 +147,15 @@
                 <div id="topic-explorer-results" class="mt-4"></div>
             </div>
             
+            <div class="mt-6 p-4 border border-gray-300 rounded-md bg-white">
+                <label class="block text-lg font-semibold text-gray-800">Fragetypen auswählen & generieren</label>
+                <div id="question-types" class="my-4 grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                <p class="mt-2 text-xs text-gray-500">* Anmerkung: "Multiple Choice (1/2/3)" bezieht sich auf die Anzahl der korrekten Antworten, die pro Frage generiert werden sollen.</p>
+                <button id="generate-questions-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-md shadow-lg hover:bg-indigo-700 mt-4">Fragen generieren</button>
+            </div>
+            
             <div id="output-container" class="mt-8 flex-grow">
                 <h2 class="text-xl font-semibold mb-4 text-gray-200">Generierter Inhalt</h2>
-                <div id="batch-status" class="text-yellow-400 my-2"></div>
                 <div id="spinner" class="hidden mx-auto my-8 loader"></div>
                 <div id="results-wrapper">
                     <div id="token-usage" class="text-sm text-right text-gray-400 mb-2"></div>
