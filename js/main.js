@@ -1,6 +1,6 @@
 import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS } from './utils.js';
 import { callApi, extractContentAndTokens } from './api.js';
-import { initializeQuestionCheckboxes, switchProviderConfig, handleImageUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState } from './ui.js'; // Import setButtonLoadingState
+import { initializeQuestionCheckboxes, switchProviderConfig, handleFileUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState } from './ui.js';
 
 // App constants
 const QUESTION_TYPES = [
@@ -9,7 +9,7 @@ const QUESTION_TYPES = [
 ];
 
 // App state
-let uploadedImages = [];
+let uploadedFiles = [];
 const promptCache = {};
 
 // DOM Element References
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Handlers ---
 
     async function onGenerateGoals() {
-        if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
+        if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
 
@@ -63,7 +63,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
                 text: elements.userInput.value
             };
 
-            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
+            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedFiles);
             const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
             if (text) elements.learningGoals.value = text;
             updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
@@ -77,7 +77,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
     }
 
     async function onExploreTopics() {
-        if (!elements.userInput.value.trim() && uploadedImages.length === 0) {
+        if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
 
@@ -92,7 +92,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
                 goals: "",
                 text: elements.userInput.value
             };
-            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedImages);
+            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedFiles);
 
             const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
             if (text) {
@@ -109,7 +109,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
 
     async function onGenerateQuestions() {
         const selectedTypes = Array.from(document.querySelectorAll('input[name="question_type"]:checked')).map(cb => cb.value);
-        if ((!elements.userInput.value.trim() && uploadedImages.length === 0) || selectedTypes.length === 0) {
+        if ((!elements.userInput.value.trim() && uploadedFiles.length === 0) || selectedTypes.length === 0) {
             return alert("Bitte geben Sie Material ein und wählen Sie mindestens einen Fragetyp.");
         }
 
@@ -128,7 +128,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
                 text: elements.userInput.value
             };
             const fullPrompt = assembleFullPrompt(basePrompt, context);
-            const resultData = await callApi(elements.providerSelect.value, fullPrompt, uploadedImages);
+            const resultData = await callApi(elements.providerSelect.value, fullPrompt, uploadedFiles);
             let { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
 
             totalInputTokens += inputTokens;
@@ -157,7 +157,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
 
     elements.providerSelect.addEventListener('change', (e) => switchProviderConfig(e.target.value));
     elements.fileUpload.addEventListener('change', async (e) => {
-        uploadedImages = await handleImageUpload(e, elements.imagePreviews);
+        uploadedFiles = await handleFileUpload(e, elements.imagePreviews);
     });
 
     elements.generateGoalsBtn.addEventListener('click', onGenerateGoals);

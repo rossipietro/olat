@@ -7,13 +7,13 @@ export const API_CONFIGS = {
 };
 
 /**
- * Calls the selected LLM's API with the given prompt and images.
+ * Calls the selected LLM's API with the given prompt and files.
  * @param {string} provider The selected provider (e.g., 'google').
  * @param {string} prompt The full prompt text.
- * @param {Array} uploadedImages An array of image data objects.
+ * @param {Array} uploadedFiles An array of file data objects (images or videos).
  * @returns {Promise<object|null>} The JSON response from the API or null.
  */
-export async function callApi(provider, prompt, uploadedImages) {
+export async function callApi(provider, prompt, uploadedFiles) {
     const config = API_CONFIGS[provider];
     const apiKey = document.getElementById(config.keyId).value;
     const model = document.getElementById(config.modelId).value;
@@ -23,25 +23,31 @@ export async function callApi(provider, prompt, uploadedImages) {
         return null;
     }
 
+    const hasVideo = uploadedFiles.some(f => f.mime_type.startsWith('video/'));
+    if (hasVideo && provider !== 'google') {
+        alert(`Video-Upload wird derzeit nur für Google Gemini-Modelle unterstützt.`);
+        return null;
+    }
+
     let url = config.url.replace('{model}', model).replace('{apiKey}', apiKey);
     let headers = { 'Content-Type': 'application/json' };
     let body;
     let promptParts = [{ type: 'text', text: prompt }];
 
-    if (uploadedImages.length > 0) {
-        const imageParts = uploadedImages.map(img => {
+    if (uploadedFiles.length > 0) {
+        const fileParts = uploadedFiles.map(file => {
             switch (provider) {
-                case 'google': return { inlineData: { mimeType: img.mime_type, data: img.data } };
+                case 'google': return { inlineData: { mimeType: file.mime_type, data: file.data } };
                 case 'openai':
-                case 'deepseek': return { type: 'image_url', image_url: { url: `data:${img.mime_type};base64,${img.data}` } };
+                case 'deepseek': return { type: 'image_url', image_url: { url: `data:${file.mime_type};base64,${file.data}` } };
                 default: return null;
             }
         }).filter(p => p);
 
         if (provider === 'google') {
-            promptParts.push(...imageParts);
+            promptParts.push(...fileParts);
         } else {
-            promptParts = [{ type: 'text', text: prompt }, ...imageParts];
+            promptParts = [{ type: 'text', text: prompt }, ...fileParts];
         }
     }
 
@@ -52,7 +58,7 @@ export async function callApi(provider, prompt, uploadedImages) {
         case 'openai':
         case 'deepseek':
             headers.Authorization = `Bearer ${apiKey}`;
-            body = { model: model, messages: [{ role: 'user', content: (uploadedImages.length > 0) ? promptParts : prompt }] };
+            body = { model: model, messages: [{ role: 'user', content: (uploadedFiles.length > 0) ? promptParts : prompt }] };
             break;
     }
 
