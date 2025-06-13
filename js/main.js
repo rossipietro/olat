@@ -44,11 +44,57 @@ const elements = {
  */
 document.addEventListener('DOMContentLoaded', () => {
 
-    /**
-     * Generates questions for a single piece of text.
-     * @param {string} textInput The text to generate questions from.
-     * @returns {Promise<{fullResponse: string, totalInput: number, totalOutput: number}>}
-     */
+    // --- Start of Function Definitions ---
+
+    async function onGenerateGoals() {
+        if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
+            return alert("Bitte geben Sie Text ein oder laden Sie Multimedia-Dateien für den Lernziel-Assistenten hoch.");
+        }
+
+        setButtonLoadingState(elements.generateGoalsBtn, true);
+
+        try {
+            const niveauKey = elements.zielniveau.value;
+            const niveauDescription = ZIELNIVEAU_DESCRIPTIONS[niveauKey]?.description;
+            const prompt = `Analysiere den bereitgestellten Inhalt und generiere 3-5 Lernziele.\nFormuliere die Lernziele als "Die Lernenden können...".\nBeachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${niveauDescription}"`;
+            const resultData = await callApi(elements.providerSelect.value, prompt, uploadedFiles);
+            const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
+            if (text) elements.learningGoals.value = text;
+            updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
+
+        } catch (error) {
+            console.error("Failed to generate learning goals:", error);
+            alert(`Fehler beim Generieren der Lernziele: ${error.message}`);
+        } finally {
+            setButtonLoadingState(elements.generateGoalsBtn, false);
+        }
+    }
+
+    async function onExploreTopics() {
+        if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
+            return alert("Bitte geben Sie Text ein oder laden Sie Multimedia-Dateien für den Themen-Explorer hoch.");
+        }
+
+        setButtonLoadingState(elements.exploreTopicsBtn, true);
+        elements.topicExplorerResultsContainer.innerHTML = '';
+
+        try {
+            const prompt = `Analysiere den bereitgestellten Text und/oder die Bilder. Schlage 3-5 verwandte Themen oder Konzepte vor. Formatiere als sauberes HTML mit <h4> und <p> Tags. Gib NUR das HTML aus.`;
+            const resultData = await callApi(elements.providerSelect.value, prompt, uploadedFiles);
+
+            const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
+            if (text) {
+                elements.topicExplorerResultsContainer.innerHTML = `<h3 class="text-lg font-semibold mb-2 text-indigo-700">✨ Verwandte Themen</h3><div class="p-4 bg-indigo-50 rounded-md">${text}</div>`;
+            }
+            updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
+        } catch (error) {
+            console.error("Failed to explore topics:", error);
+            alert(`Fehler beim Erforschen der Themen: ${error.message}`);
+        } finally {
+            setButtonLoadingState(elements.exploreTopicsBtn, false);
+        }
+    }
+    
     async function generateQuestionsForText(textInput) {
         const selectedTypes = Array.from(document.querySelectorAll('input[name="question_type"]:checked')).map(cb => cb.value);
         let combinedResponse = '';
@@ -66,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 text: textInput,
             };
             const fullPrompt = assembleFullPrompt(basePrompt, context);
-            // In batch mode, we don't send multimedia files, so uploadedFiles is empty.
             const resultData = await callApi(elements.providerSelect.value, fullPrompt, []); 
             let { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
 
@@ -81,11 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { fullResponse: combinedResponse, totalInput, totalOutput };
     }
 
-    /**
-     * Main handler for the "Fragen generieren" button. Decides between single and batch mode.
-     */
     async function onGenerateQuestions() {
-        // Mode selection: If batch files are selected, run in batch mode.
         if (batchFiles && batchFiles.length > 0) {
             await runBatchMode();
         } else {
@@ -93,9 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Executes the question generation for a single input from the text area.
-     */
     async function runSingleMode() {
         if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
             return alert("Bitte geben Sie Text ein oder laden Sie eine Multimedia-Datei hoch.");
@@ -104,7 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showSpinner(true, elements);
         updateBatchStatus('', elements.batchStatus);
         
-        // This process is nearly identical to the original onGenerateQuestions, but uses uploadedFiles.
         const selectedTypes = Array.from(document.querySelectorAll('input[name="question_type"]:checked')).map(cb => cb.value);
         let allGeneratedResponses = '';
         let totalInputTokens = 0, totalOutputTokens = 0;
@@ -142,9 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Executes the sequential batch processing of uploaded documents.
-     */
     async function runBatchMode() {
         showSpinner(true, elements);
         let finalBatchOutput = `BATCH-VERARBEITUNGSERGEBNISSE - ${new Date().toLocaleString('de-CH')}\n\n`;
@@ -186,6 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- End of Function Definitions ---
+
+
     // --- Initial Setup & Event Listeners ---
     
     initializeQuestionCheckboxes(QUESTION_TYPES, elements.questionTypesContainer);
@@ -203,7 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.docUpload.addEventListener('change', (e) => {
         batchFiles = handleDocUpload(e, elements.docList);
-        // Disable single-mode inputs if batch files are selected
         const disabled = batchFiles && batchFiles.length > 0;
         elements.userInput.disabled = disabled;
         elements.fileUpload.disabled = disabled;
@@ -211,17 +247,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     elements.generateQuestionsBtn.addEventListener('click', onGenerateQuestions);
-    
-    // Simplified event listeners for goals/explorer (they use single mode inputs)
-    elements.generateGoalsBtn.addEventListener('click', async () => {
-        if (!elements.userInput.value.trim()) return alert("Der Lernziel-Assistent benötigt Text im Text-Input Feld.");
-        // Simplified version for brevity, full implementation can be added back
-    });
-    elements.exploreTopicsBtn.addEventListener('click', async () => {
-         if (!elements.userInput.value.trim()) return alert("Der Themen-Explorer benötigt Text im Text-Input Feld.");
-        // Simplified version for brevity, full implementation can be added back
-    });
-    
+    elements.generateGoalsBtn.addEventListener('click', onGenerateGoals);
+    elements.exploreTopicsBtn.addEventListener('click', onExploreTopics);
     elements.downloadBtn.addEventListener('click', () => handleDownload(elements.allResponsesContainer.textContent));
 
     elements.saveKeysCheckbox.addEventListener('change', (e) => {
