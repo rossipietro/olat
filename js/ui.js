@@ -58,29 +58,37 @@ export function handleFileUpload(event, previewsContainer) {
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = e => {
+                const previewWrapper = document.createElement('div');
+                previewWrapper.className = 'h-20 w-full flex items-center justify-center bg-gray-100 rounded-md p-1';
+
                 if (file.type.startsWith('image/')) {
                     const img = document.createElement('img');
                     img.src = e.target.result;
-                    img.className = 'h-20 w-20 object-cover rounded-md';
-                    previewsContainer.appendChild(img);
+                    img.className = 'h-full w-full object-cover rounded-md';
+                    previewWrapper.appendChild(img);
                 } else if (file.type.startsWith('video/')) {
                     const video = document.createElement('video');
                     video.src = e.target.result;
-                    video.className = 'h-20 w-20 object-cover rounded-md';
+                    video.className = 'h-full w-full object-cover rounded-md';
                     video.controls = true;
                     video.muted = true;
-                    previewsContainer.appendChild(video);
+                    previewWrapper.appendChild(video);
                 } else if (file.type.startsWith('audio/')) {
-                    const audio = document.createElement('audio');
-                    audio.src = e.target.result;
-                    audio.className = 'w-full'; // Span the full width of the grid cell
-                    audio.controls = true;
-                    previewsContainer.appendChild(audio);
+                    previewWrapper.innerHTML = `
+                        <div class="text-center text-gray-600">
+                            <svg class="mx-auto h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" /></svg>
+                            <span class="block text-xs font-medium truncate w-20">${file.name}</span>
+                        </div>
+                    `;
                 }
+                previewsContainer.appendChild(previewWrapper);
                 
                 resolve({
                     mime_type: file.type,
-                    data: e.target.result.split(',')[1]
+                    // The raw file object is now needed for the File API
+                    rawFile: file, 
+                    // Base64 data is kept for non-Google providers (if they ever support it)
+                    data: e.target.result.split(',')[1] 
                 });
             };
             reader.readAsDataURL(file);

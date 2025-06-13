@@ -1,16 +1,51 @@
 import { cleanGermanCharacters } from './utils.js';
 
 export const API_CONFIGS = {
-    google: { url: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}', keyId: 'google_api_key', modelId: 'google-model-select' },
-    openai: { url: 'https://api.openai.com/v1/chat/completions', keyId: 'openai_api_key', modelId: 'openai-model-select' },
-    deepseek: { url: 'https://api.deepseek.com/chat/completions', keyId: 'deepseek_api_key', modelId: 'deepseek-model-select' }
+    google: { 
+        url: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}',
+        fileUrl: 'https://generativelanguage.googleapis.com/v1beta/files?key={apiKey}',
+        keyId: 'google_api_key', 
+        modelId: 'google-model-select' 
+    },
+    openai: { 
+        url: 'https://api.openai.com/v1/chat/completions', 
+        keyId: 'openai_api_key', 
+        modelId: 'openai-model-select' 
+    },
+    deepseek: { 
+        url: 'https://api.deepseek.com/chat/completions', 
+        keyId: 'deepseek_api_key', 
+        modelId: 'deepseek-model-select' 
+    }
 };
+
+/**
+ * Uploads a single file to the Gemini File API.
+ * @param {File} file The raw file object to upload.
+ * @param {string} apiKey The user's Google API key.
+ * @returns {Promise<object>} The file metadata object from the API response.
+ */
+async function uploadFileToGemini(file, apiKey) {
+    console.log(`Uploading ${file.name} to Gemini File API...`);
+    const url = API_CONFIGS.google.fileUrl.replace('{apiKey}', apiKey);
+    const headers = { 'X-Goog-Upload-Protocol': 'raw', 'Content-Type': file.type };
+    
+    const response = await fetch(url, { method: 'POST', headers: headers, body: file });
+    
+    if (!response.ok) {
+        throw new Error(`File upload failed for ${file.name}: ${await response.text()}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Successfully uploaded ${file.name}. URI: ${data.file.uri}`);
+    return data.file;
+}
 
 /**
  * Calls the selected LLM's API with the given prompt and files.
  * @param {string} provider The selected provider (e.g., 'google').
  * @param {string} prompt The full prompt text.
- * @param {Array} uploadedFiles An array of file data objects (images, audio, or videos).
+ * @param {Array} uploadedFiles An array of file data objects from the UI.
  * @returns {Promise<object|null>} The JSON response from the API or null.
  */
 export async function callApi(provider, prompt, uploadedFiles) {
@@ -22,46 +57,58 @@ export async function callApi(provider, prompt, uploadedFiles) {
         alert(`Bitte geben Sie einen API-Schlüssel für ${provider} ein.`);
         return null;
     }
-
-    const hasVideo = uploadedFiles.some(f => f.mime_type.startsWith('video/'));
-    const hasAudio = uploadedFiles.some(f => f.mime_type.startsWith('audio/'));
-    if ((hasVideo || hasAudio) && provider !== 'google') {
-        alert(`Video- und Audio-Upload wird derzeit nur für Google Gemini-Modelle unterstützt.`);
-        return null;
-    }
-
+    
     let url = config.url.replace('{model}', model).replace('{apiKey}', apiKey);
     let headers = { 'Content-Type': 'application/json' };
     let body;
-    let promptParts = [{ text: prompt }]; 
 
-    if (uploadedFiles.length > 0) {
-        const fileParts = uploadedFiles.map(file => {
-            switch (provider) {
-                case 'google': return { inlineData: { mimeType: file.mime_type, data: file.data } };
-                case 'openai':
-                case 'deepseek': return { type: 'image_url', image_url: { url: `data:${file.mime_type};base64,${file.data}` } };
-                default: return null;
+    // --- Start of Provider-Specific Logic ---
+    if (provider === 'google') {
+        const promptParts = [{ text: prompt }];
+        
+        if (uploadedFiles.length > 0) {
+            try {
+                // Step 1: Upload all files to the File API in parallel.
+                const uploadedFileMetadata = await Promise.all(
+                    uploadedFiles.map(fileObj => uploadFileToGemini(fileObj.rawFile, apiKey))
+                );
+                
+                // Step 2: Create fileData parts using the URIs from the upload response.
+                const fileDataParts = uploadedFileMetadata.map(meta => ({
+                    fileData: { mimeType: meta.mimeType, fileUri: meta.uri }
+                }));
+                
+                promptParts.push(...fileDataParts);
+
+            } catch (error) {
+                console.error("Error during file upload process:", error);
+                alert(`Fehler beim Hochladen der Dateien: ${error.message}`);
+                return null;
             }
-        }).filter(p => p);
-
-        if (provider === 'google') {
-            promptParts.push(...fileParts);
-        } else {
-            promptParts = [{ type: 'text', text: prompt }, ...fileParts];
         }
-    }
+        body = { contents: [{ parts: promptParts }] };
 
-    switch (provider) {
-        case 'google':
-            body = { contents: [{ parts: promptParts }] };
-            break;
-        case 'openai':
-        case 'deepseek':
-            headers.Authorization = `Bearer ${apiKey}`;
-            body = { model: model, messages: [{ role: 'user', content: (uploadedFiles.length > 0) ? promptParts : prompt }] };
-            break;
+    } else { // Logic for OpenAI, DeepSeek, etc.
+        const hasVideo = uploadedFiles.some(f => f.mime_type.startsWith('video/'));
+        const hasAudio = uploadedFiles.some(f => f.mime_type.startsWith('audio/'));
+        if (hasVideo || hasAudio) {
+            alert(`Video- und Audio-Upload wird derzeit nur für Google Gemini-Modelle unterstützt.`);
+            return null;
+        }
+
+        let promptParts = [{ type: 'text', text: prompt }];
+        if (uploadedFiles.length > 0) {
+            const imageParts = uploadedFiles.map(file => ({
+                type: 'image_url',
+                image_url: { url: `data:${file.mime_type};base64,${file.data}` }
+            }));
+            promptParts.push(...imageParts);
+        }
+
+        headers.Authorization = `Bearer ${apiKey}`;
+        body = { model: model, messages: [{ role: 'user', content: promptParts }] };
     }
+    // --- End of Provider-Specific Logic ---
 
     try {
         const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -77,6 +124,7 @@ export async function callApi(provider, prompt, uploadedFiles) {
         return null;
     }
 }
+
 
 /**
  * Extracts the text content and token usage from an API response.
