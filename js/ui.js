@@ -85,7 +85,9 @@ export function handleFileUpload(event, previewsContainer) {
                 
                 resolve({
                     mime_type: file.type,
-                    rawFile: file,
+                    // The raw file object is now needed for the File API
+                    rawFile: file, 
+                    // Base64 data is kept for non-Google providers (if they ever support it)
                     data: e.target.result.split(',')[1] 
                 });
             };
@@ -155,10 +157,12 @@ export function handleDownload(content) {
  */
 export function setButtonLoadingState(button, isLoading) {
     if (isLoading) {
+        // Store the button's original content if it hasn't been stored yet
         if (!button.dataset.originalHtml) {
             button.dataset.originalHtml = button.innerHTML;
         }
         button.disabled = true;
+        // The 'flex' and 'items-center' classes on the button ensure the spinner and text align correctly.
         button.innerHTML = `
             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -168,6 +172,7 @@ export function setButtonLoadingState(button, isLoading) {
         `;
         button.classList.add('opacity-75', 'cursor-not-allowed');
     } else {
+        // Restore the button to its original state
         if (button.dataset.originalHtml) {
             button.innerHTML = button.dataset.originalHtml;
         }
@@ -176,41 +181,44 @@ export function setButtonLoadingState(button, isLoading) {
     }
 }
 
+// ... (keep all existing functions like initializeQuestionCheckboxes, etc.) ...
+
 /**
  * Renders the list of saved outputs in the history container.
  * @param {Array} history The array of history items to render.
  * @param {HTMLElement} container The DOM element to render the list into.
  */
 export function renderHistoryList(history, container) {
-    // Clear previous items from the container
-    container.innerHTML = '';
+    const placeholder = document.getElementById('history-placeholder');
+    container.innerHTML = ''; // Clear previous items
 
     if (history.length === 0) {
-        // If history is empty, add the placeholder text back.
-        container.innerHTML = '<p class="text-sm text-gray-500" id="history-placeholder">Bisher keine Ausgaben generiert.</p>';
+        container.appendChild(placeholder);
+        placeholder.style.display = 'block';
     } else {
-        // If history exists, render each item.
+        placeholder.style.display = 'none';
         history.forEach(item => {
             const date = new Date(item.timestamp);
+            // Format for Switzerland: DD.MM.YYYY, HH:MM
             const formattedDate = date.toLocaleString('de-CH', { 
                 year: 'numeric', month: '2-digit', day: '2-digit', 
                 hour: '2-digit', minute: '2-digit' 
             });
 
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'p-2 bg-gray-50 rounded-md flex items-center justify-between hover:bg-gray-100 history-item';
+            itemDiv.className = 'p-2 bg-gray-50 rounded-md flex items-center justify-between hover:bg-gray-100';
             
             itemDiv.innerHTML = `
-                <div class="text-sm text-gray-700 overflow-hidden">
+                <div class="text-sm text-gray-700">
                     <span class="font-semibold">${formattedDate}</span>
-                    <p class="text-xs text-gray-500 truncate">${item.content.substring(0, 40).replace(/\n/g, ' ')}...</p>
+                    <p class="text-xs text-gray-500 truncate max-w-xs">${item.content.substring(0, 40).replace(/\n/g, ' ')}...</p>
                 </div>
-                <div class="flex-shrink-0 flex items-center space-x-2">
+                <div class="flex items-center space-x-2">
                     <button title="Herunterladen" class="download-history-btn p-1 text-gray-500 hover:text-indigo-600" data-timestamp="${item.timestamp}">
-                        <svg class="w-5 h-5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                     </button>
                     <button title="Löschen" class="delete-history-btn p-1 text-gray-500 hover:text-red-600" data-timestamp="${item.timestamp}">
-                        <svg class="w-5 h-5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                     </button>
                 </div>
             `;
