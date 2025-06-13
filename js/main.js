@@ -1,11 +1,6 @@
-import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS, saveOutputToHistory, loadOutputHistory, deleteFromOutputHistory, extractTextFromFile } from './utils.js';
+import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS, saveOutputToHistory, loadOutputHistory, deleteFromOutputHistory } from './utils.js';
 import { callApi, extractContentAndTokens } from './api.js';
-import { initializeQuestionCheckboxes, switchProviderConfig, handleFileUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState, renderHistoryList, handleDocUpload, updateBatchStatus } from './ui.js';
-
-// App state
-let uploadedFiles = [];
-let batchFiles = null;
-const promptCache = {};
+import { initializeQuestionCheckboxes, switchProviderConfig, handleFileUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState, renderHistoryList } from './ui.js';
 
 // App constants
 const QUESTION_TYPES = [
@@ -13,49 +8,44 @@ const QUESTION_TYPES = [
     "kprim", "truefalse", "draganddrop", "inline_fib"
 ];
 
+// App state
+let uploadedFiles = [];
+const promptCache = {};
+
+// DOM Element References
+const elements = {
+    providerSelect: document.getElementById('provider-select'),
+    saveKeysCheckbox: document.getElementById('save-keys-checkbox'),
+    apiKeyInputs: document.querySelectorAll('.api-key-input'),
+    fileUpload: document.getElementById('file-upload'),
+    imagePreviews: document.getElementById('image-previews'),
+    language: document.getElementById('language'),
+    zielniveau: document.getElementById('zielniveau'),
+    userInput: document.getElementById('user_input'),
+    learningGoals: document.getElementById('learning_goals'),
+    generateGoalsBtn: document.getElementById('generate-goals-btn'),
+    exploreTopicsBtn: document.getElementById('explore-topics-btn'),
+    generateQuestionsBtn: document.getElementById('generate-questions-btn'),
+    questionTypesContainer: document.getElementById('question-types'),
+    spinner: document.getElementById('spinner'),
+    resultsWrapper: document.getElementById('results-wrapper'),
+    tokenUsageContainer: document.getElementById('token-usage'),
+    allResponsesContainer: document.getElementById('all-responses'),
+    topicExplorerResultsContainer: document.getElementById('topic-explorer-results'),
+    downloadBtn: document.getElementById('download-btn'),
+    historyContainer: document.getElementById('history-container'),
+};
+
 /**
  * Main application logic starts here, after the DOM is fully loaded.
  */
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- DOM Element References ---
-    // Moved inside DOMContentLoaded for robustness. This ensures all elements exist before we try to find them.
-    const elements = {
-        // Sidebar
-        providerSelect: document.getElementById('provider-select'),
-        saveKeysCheckbox: document.getElementById('save-keys-checkbox'),
-        apiKeyInputs: document.querySelectorAll('.api-key-input'),
-        language: document.getElementById('language'),
-        zielniveau: document.getElementById('zielniveau'),
-        historyContainer: document.getElementById('history-container'),
-        
-        // Main Content
-        docUpload: document.getElementById('doc-upload'),
-        docList: document.getElementById('doc-list'),
-        userInput: document.getElementById('user_input'),
-        learningGoals: document.getElementById('learning_goals'),
-        generateGoalsBtn: document.getElementById('generate-goals-btn'),
-        fileUpload: document.getElementById('file-upload'),
-        imagePreviews: document.getElementById('image-previews'),
-        exploreTopicsBtn: document.getElementById('explore-topics-btn'),
-        questionTypesContainer: document.getElementById('question-types'),
-        generateQuestionsBtn: document.getElementById('generate-questions-btn'),
-        
-        // Output
-        batchStatus: document.getElementById('batch-status'),
-        outputContainer: document.getElementById('output-container'),
-        spinner: document.getElementById('spinner'),
-        resultsWrapper: document.getElementById('results-wrapper'),
-        tokenUsageContainer: document.getElementById('token-usage'),
-        allResponsesContainer: document.getElementById('all-responses'),
-        downloadBtn: document.getElementById('download-btn'),
-    };
-
-    // --- Start of Function Definitions ---
+    // --- Event Handlers ---
 
     async function onGenerateGoals() {
         if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
-            return alert("Bitte geben Sie Text ein oder laden Sie Multimedia-Dateien für den Lernziel-Assistenten hoch.");
+            return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
 
         setButtonLoadingState(elements.generateGoalsBtn, true);
@@ -79,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function onExploreTopics() {
         if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
-            return alert("Bitte geben Sie Text ein oder laden Sie Multimedia-Dateien für den Themen-Explorer hoch.");
+            return alert("Bitte geben Sie Text ein oder laden Sie Bilder hoch.");
         }
 
         setButtonLoadingState(elements.exploreTopicsBtn, true);
@@ -101,55 +91,14 @@ document.addEventListener('DOMContentLoaded', () => {
             setButtonLoadingState(elements.exploreTopicsBtn, false);
         }
     }
-    
-    async function generateQuestionsForText(textInput) {
-        const selectedTypes = Array.from(document.querySelectorAll('input[name="question_type"]:checked')).map(cb => cb.value);
-        let combinedResponse = '';
-        let totalInput = 0;
-        let totalOutput = 0;
-
-        for (const type of selectedTypes) {
-            const basePrompt = await fetchPromptForType(type, promptCache);
-            if (!basePrompt) continue;
-
-            const context = {
-                language: elements.language.value,
-                zielniveau: elements.zielniveau.value,
-                goals: elements.learningGoals.value,
-                text: textInput,
-            };
-            const fullPrompt = assembleFullPrompt(basePrompt, context);
-            const resultData = await callApi(elements.providerSelect.value, fullPrompt, []); 
-            let { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
-
-            totalInput += inputTokens;
-            totalOutput += outputTokens;
-
-            if (type === 'inline_fib' && text && text.includes('```json')) {
-                text = formatInlineFibOutput(text);
-            }
-            combinedResponse += text ? `## ${type.replace(/_/g, ' ').toUpperCase()} ##\n\n${text}\n\n---\n\n` : `## FEHLER FÜR ${type.toUpperCase()} ##\nKeine Antwort vom Server erhalten.\n\n---\n\n`;
-        }
-        return { fullResponse: combinedResponse, totalInput, totalOutput };
-    }
 
     async function onGenerateQuestions() {
-        if (batchFiles && batchFiles.length > 0) {
-            await runBatchMode();
-        } else {
-            await runSingleMode();
-        }
-    }
-
-    async function runSingleMode() {
-        if (!elements.userInput.value.trim() && uploadedFiles.length === 0) {
-            return alert("Bitte geben Sie Text ein oder laden Sie eine Multimedia-Datei hoch.");
-        }
-        
-        showSpinner(true, elements);
-        updateBatchStatus('', elements.batchStatus);
-        
         const selectedTypes = Array.from(document.querySelectorAll('input[name="question_type"]:checked')).map(cb => cb.value);
+        if ((!elements.userInput.value.trim() && uploadedFiles.length === 0) || selectedTypes.length === 0) {
+            return alert("Bitte geben Sie Material ein und wählen Sie mindestens einen Fragetyp.");
+        }
+
+        showSpinner(true, elements);
         let allGeneratedResponses = '';
         let totalInputTokens = 0, totalOutputTokens = 0;
 
@@ -173,89 +122,43 @@ document.addEventListener('DOMContentLoaded', () => {
             if (type === 'inline_fib' && text && text.includes('```json')) {
                 text = formatInlineFibOutput(text);
             }
+
             allGeneratedResponses += text ? `## ${type.replace(/_/g, ' ').toUpperCase()} ##\n\n${text}\n\n---\n\n` : `## FEHLER FÜR ${type.toUpperCase()} ##\nKeine Antwort vom Server erhalten.\n\n---\n\n`;
         }
 
         elements.allResponsesContainer.textContent = allGeneratedResponses;
         updateTokenCount(elements.tokenUsageContainer, totalInputTokens, totalOutputTokens);
+        elements.downloadBtn.style.display = allGeneratedResponses ? 'block' : 'none';
         showSpinner(false, elements);
-
+        
+        // Save the successful output to history and re-render the list
         if (allGeneratedResponses.trim()) {
             const newHistory = saveOutputToHistory(allGeneratedResponses);
             renderHistoryList(newHistory, elements.historyContainer);
         }
     }
 
-    async function runBatchMode() {
-        showSpinner(true, elements);
-        let finalBatchOutput = `BATCH-VERARBEITUNGSERGEBNISSE - ${new Date().toLocaleString('de-CH')}\n\n`;
-        let cumulativeInputTokens = 0;
-        let cumulativeOutputTokens = 0;
-        const totalFiles = batchFiles.length;
+    // --- Initial Setup ---
 
-        for (let i = 0; i < totalFiles; i++) {
-            const file = batchFiles[i];
-            updateBatchStatus(`Verarbeite Datei ${i + 1} von ${totalFiles}: ${file.name}...`, elements.batchStatus);
-            
-            try {
-                const extractedText = await extractTextFromFile(file);
-                if (!extractedText.trim()) {
-                    finalBatchOutput += `\n\n====================\n## DOKUMENT: ${file.name} ##\n====================\n\nFEHLER: Konnte keinen Text aus der Datei extrahieren oder die Datei ist leer.\n\n`;
-                    continue;
-                }
-
-                const result = await generateQuestionsForText(extractedText);
-                
-                finalBatchOutput += `\n\n====================\n## DOKUMENT: ${file.name} ##\n====================\n\n${result.fullResponse}`;
-                cumulativeInputTokens += result.totalInput;
-                cumulativeOutputTokens += result.totalOutput;
-
-            } catch (error) {
-                console.error(`Error processing file ${file.name}:`, error);
-                finalBatchOutput += `\n\n====================\n## DOKUMENT: ${file.name} ##\n====================\n\nFEHLER: ${error.message}\n\n`;
-            }
-        }
-
-        updateBatchStatus('Batch-Verarbeitung abgeschlossen!', elements.batchStatus);
-        elements.allResponsesContainer.textContent = finalBatchOutput;
-        updateTokenCount(elements.tokenUsageContainer, cumulativeInputTokens, cumulativeOutputTokens);
-        showSpinner(false, elements);
-        
-        if (finalBatchOutput.trim()) {
-            const newHistory = saveOutputToHistory(finalBatchOutput);
-            renderHistoryList(newHistory, elements.historyContainer);
-        }
-    }
-
-    // --- End of Function Definitions ---
-
-
-    // --- Initial Setup & Event Listeners ---
-    
     initializeQuestionCheckboxes(QUESTION_TYPES, elements.questionTypesContainer);
     switchProviderConfig(elements.providerSelect.value);
     elements.saveKeysCheckbox.checked = loadApiKeys();
     
+    // Load and render history on page load
     const initialHistory = loadOutputHistory();
     renderHistoryList(initialHistory, elements.historyContainer);
 
+
+    // --- Event Listener Attachments ---
+
     elements.providerSelect.addEventListener('change', (e) => switchProviderConfig(e.target.value));
-    
     elements.fileUpload.addEventListener('change', async (e) => {
         uploadedFiles = await handleFileUpload(e, elements.imagePreviews);
     });
 
-    elements.docUpload.addEventListener('change', (e) => {
-        batchFiles = handleDocUpload(e, elements.docList);
-        const disabled = batchFiles && batchFiles.length > 0;
-        elements.userInput.disabled = disabled;
-        elements.fileUpload.disabled = disabled;
-        elements.userInput.classList.toggle('bg-gray-200', disabled);
-    });
-    
-    elements.generateQuestionsBtn.addEventListener('click', onGenerateQuestions);
     elements.generateGoalsBtn.addEventListener('click', onGenerateGoals);
     elements.exploreTopicsBtn.addEventListener('click', onExploreTopics);
+    elements.generateQuestionsBtn.addEventListener('click', onGenerateQuestions);
     elements.downloadBtn.addEventListener('click', () => handleDownload(elements.allResponsesContainer.textContent));
 
     elements.saveKeysCheckbox.addEventListener('change', (e) => {
@@ -265,11 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             localStorage.removeItem('apiKeys');
             localStorage.removeItem('saveApiKeysPreference');
-            alert('Lokales Speichern der API Schlüssel deaktiviert.');
+            alert('Lokales Speichern der API Schlüssel deaktiviert. Gespeicherte Schlüssel wurden entfernt.');
         }
     });
     elements.apiKeyInputs.forEach(input => input.addEventListener('input', () => saveApiKeys(elements.saveKeysCheckbox.checked)));
 
+    // Event listener for history container (download/delete)
     elements.historyContainer.addEventListener('click', (e) => {
         const downloadBtn = e.target.closest('.download-history-btn');
         const deleteBtn = e.target.closest('.delete-history-btn');
@@ -278,7 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const timestamp = downloadBtn.dataset.timestamp;
             const history = loadOutputHistory();
             const item = history.find(i => i.timestamp === timestamp);
-            if (item) handleDownload(item.content);
+            if (item) {
+                handleDownload(item.content);
+            }
         }
 
         if (deleteBtn) {
