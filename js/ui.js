@@ -70,6 +70,12 @@ export function handleFileUpload(event, previewsContainer) {
                     video.controls = true;
                     video.muted = true;
                     previewsContainer.appendChild(video);
+                } else if (file.type.startsWith('audio/')) {
+                    const audio = document.createElement('audio');
+                    audio.src = e.target.result;
+                    audio.className = 'w-full'; // Span the full width of the grid cell
+                    audio.controls = true;
+                    previewsContainer.appendChild(audio);
                 }
                 
                 resolve({
