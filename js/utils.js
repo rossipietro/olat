@@ -8,7 +8,6 @@ export function cleanGermanCharacters(text) {
     return text.replace(/ß/g, 'ss');
 }
 
-// START: NEW DATA STORE FOR ZIELNIVEAU DESCRIPTIONS
 /**
  * A store for the detailed descriptions of each target level (Zielniveau).
  */
@@ -34,7 +33,6 @@ export const ZIELNIVEAU_DESCRIPTIONS = {
         description: 'Verwende präzise, abstrakte und komplexe Sprache. Die Fragen sollen kreative, originelle Denkprozesse anregen und fächerübergreifende Kompetenzen einbeziehen. Es wird ein hohes Maß an Autonomie und metakognitivem Denken vorausgesetzt.'
     }
 };
-// END: NEW DATA STORE
 
 /**
  * Fetches a prompt from a file, using a cache to avoid re-fetching.
@@ -56,7 +54,6 @@ export async function fetchPromptForType(type, cache) {
     }
 }
 
-// START: UPDATED PROMPT ASSEMBLY FUNCTION
 /**
  * Assembles the full prompt to be sent to the LLM.
  * @param {string} basePrompt The base instruction from the prompt file.
@@ -69,7 +66,6 @@ export function assembleFullPrompt(basePrompt, context) {
 
     return `${basePrompt}\n\n## CONTEXT ##\nLanguage: ${language}\nLearning Goals: """${goals || 'Keine spezifischen Lernziele vorgegeben.'}"""\n\n## ZIELNIVEAU-ANWEISUNG ##\n${niveauDescription}\n\n## MATERIAL ##\n"""${text}"""`;
 }
-// END: UPDATED PROMPT ASSEMBLY FUNCTION
 
 /**
  * Saves API keys to local storage if the user has opted in.
@@ -101,8 +97,6 @@ export function loadApiKeys() {
     return true; // Return true if preference was set
 }
 
-// === NEW FUNCTION TO FORMAT THE INLINE FIB OUTPUT ===
-
 /**
  * Transforms the raw JSON string from an Inline FIB response into two formatted text blocks.
  * @param {string} rawJsonString The raw string output from the LLM.
@@ -112,7 +106,6 @@ export function formatInlineFibOutput(rawJsonString) {
     // 1. Clean and parse the JSON
     let data;
     try {
-        // Extract content from markdown code block if present
         const match = rawJsonString.match(/```json\s*([\s\S]*?)\s*```/);
         const cleanString = match ? match[1] : rawJsonString;
         data = JSON.parse(cleanString);
@@ -124,7 +117,6 @@ export function formatInlineFibOutput(rawJsonString) {
     const fibOutput = [];
     const icOutput = [];
 
-    // Helper to shuffle arrays for the Inlinechoice options
     const shuffleArray = (array) => {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -132,27 +124,19 @@ export function formatInlineFibOutput(rawJsonString) {
         }
     };
 
-    // 2. Process each item in the JSON array
     data.forEach(item => {
         const { text = '', blanks = [], wrong_substitutes = [] } = item;
         const numBlanks = blanks.length;
-        if (numBlanks === 0) return; // Skip items with no blanks
+        if (numBlanks === 0) return; 
 
-        // Create a version of the text with placeholders
         const placeholder = "||BLANK||";
         let tempText = text;
         blanks.forEach(blank => {
-            // Use a regex to replace only the first occurrence to handle duplicate blank words
             tempText = tempText.replace(new RegExp(blank.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i'), placeholder, 1);
         });
         const textParts = tempText.split(placeholder);
 
-        // --- Build FIB (Fill-In-the-Blank) Output ---
-        const fibLines = [
-            "Type\tFIB",
-            "Title\t✏✏Vervollständigen Sie die Lücken mit dem korrekten Begriff.✏✏",
-            `Points\t${numBlanks}`
-        ];
+        const fibLines = [ "Type\tFIB", "Title\t✏✏Vervollständigen Sie die Lücken mit dem korrekten Begriff.✏✏", `Points\t${numBlanks}` ];
         textParts.forEach((part, index) => {
             fibLines.push(`Text\t${part.trim()}`);
             if (index < blanks.length) {
@@ -161,13 +145,7 @@ export function formatInlineFibOutput(rawJsonString) {
         });
         fibOutput.push(fibLines.join('\n'));
 
-        // --- Build Inlinechoice Output ---
-        const icLines = [
-            "Type\tInlinechoice",
-            "Title\tWörter einordnen",
-            "Question\t✏✏Wählen Sie die richtigen Wörter.✏✏",
-            `Points\t${numBlanks}`
-        ];
+        const icLines = [ "Type\tInlinechoice", "Title\tWörter einordnen", "Question\t✏✏Wählen Sie die richtigen Wörter.✏✏", `Points\t${numBlanks}` ];
         const allOptions = [...blanks, ...wrong_substitutes];
         shuffleArray(allOptions);
         const optionsStr = allOptions.join('|');
@@ -181,6 +159,47 @@ export function formatInlineFibOutput(rawJsonString) {
         icOutput.push(icLines.join('\n'));
     });
 
-    // 3. Combine and return the final string
     return `${icOutput.join('\n\n')}\n\n---\n\n${fibOutput.join('\n\n')}`;
 }
+
+// --- START: New History Management Functions ---
+
+/**
+ * Loads the output history from local storage.
+ * @returns {Array} The array of history items.
+ */
+export function loadOutputHistory() {
+    const historyJson = localStorage.getItem('outputHistory');
+    return historyJson ? JSON.parse(historyJson) : [];
+}
+
+/**
+ * Saves a new output to the history, keeping only the last 10.
+ * @param {string} content The generated text content to save.
+ * @returns {Array} The new, updated history array.
+ */
+export function saveOutputToHistory(content) {
+    const history = loadOutputHistory();
+    const newEntry = {
+        timestamp: new Date().toISOString(),
+        content: content
+    };
+    // Add the new entry to the start and slice to keep the array size to 10
+    const newHistory = [newEntry, ...history].slice(0, 10);
+    localStorage.setItem('outputHistory', JSON.stringify(newHistory));
+    return newHistory;
+}
+
+/**
+ * Deletes a specific item from the history.
+ * @param {string} timestamp The ISO timestamp string of the item to delete.
+ * @returns {Array} The new, updated history array.
+ */
+export function deleteFromOutputHistory(timestamp) {
+    let history = loadOutputHistory();
+    const newHistory = history.filter(item => item.timestamp !== timestamp);
+    localStorage.setItem('outputHistory', JSON.stringify(newHistory));
+    return newHistory;
+}
+
+// --- END: New History Management Functions ---

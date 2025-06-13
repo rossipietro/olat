@@ -1,6 +1,6 @@
-import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS } from './utils.js';
+import { fetchPromptForType, assembleFullPrompt, saveApiKeys, loadApiKeys, formatInlineFibOutput, ZIELNIVEAU_DESCRIPTIONS, saveOutputToHistory, loadOutputHistory, deleteFromOutputHistory } from './utils.js';
 import { callApi, extractContentAndTokens } from './api.js';
-import { initializeQuestionCheckboxes, switchProviderConfig, handleFileUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState } from './ui.js';
+import { initializeQuestionCheckboxes, switchProviderConfig, handleFileUpload, updateTokenCount, clearOutputs, showSpinner, handleDownload, setButtonLoadingState, renderHistoryList } from './ui.js';
 
 // App constants
 const QUESTION_TYPES = [
@@ -33,6 +33,7 @@ const elements = {
     allResponsesContainer: document.getElementById('all-responses'),
     topicExplorerResultsContainer: document.getElementById('topic-explorer-results'),
     downloadBtn: document.getElementById('download-btn'),
+    historyContainer: document.getElementById('history-container'),
 };
 
 /**
@@ -52,18 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const niveauKey = elements.zielniveau.value;
             const niveauDescription = ZIELNIVEAU_DESCRIPTIONS[niveauKey]?.description;
-            const prompt = `Analysiere den bereitgestellten Inhalt und generiere 3-5 Lernziele.
-Formuliere die Lernziele als "Die Lernenden können...".
-Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${niveauDescription}"`;
-
-            const context = {
-                language: elements.language.value,
-                zielniveau: niveauKey,
-                goals: "", // No goals provided when generating goals
-                text: elements.userInput.value
-            };
-
-            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedFiles);
+            const prompt = `Analysiere den bereitgestellten Inhalt und generiere 3-5 Lernziele.\nFormuliere die Lernziele als "Die Lernenden können...".\nBeachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${niveauDescription}"`;
+            const resultData = await callApi(elements.providerSelect.value, prompt, uploadedFiles);
             const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
             if (text) elements.learningGoals.value = text;
             updateTokenCount(elements.tokenUsageContainer, inputTokens, outputTokens);
@@ -82,17 +73,11 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
         }
 
         setButtonLoadingState(elements.exploreTopicsBtn, true);
-        elements.topicExplorerResultsContainer.innerHTML = ''; // Clear previous results
+        elements.topicExplorerResultsContainer.innerHTML = '';
 
         try {
             const prompt = `Analysiere den bereitgestellten Text und/oder die Bilder. Schlage 3-5 verwandte Themen oder Konzepte vor. Formatiere als sauberes HTML mit <h4> und <p> Tags. Gib NUR das HTML aus.`;
-            const context = {
-                language: elements.language.value,
-                zielniveau: elements.zielniveau.value,
-                goals: "",
-                text: elements.userInput.value
-            };
-            const resultData = await callApi(elements.providerSelect.value, assembleFullPrompt(prompt, context), uploadedFiles);
+            const resultData = await callApi(elements.providerSelect.value, prompt, uploadedFiles);
 
             const { text, inputTokens, outputTokens } = extractContentAndTokens(elements.providerSelect.value, resultData);
             if (text) {
@@ -113,7 +98,7 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
             return alert("Bitte geben Sie Material ein und wählen Sie mindestens einen Fragetyp.");
         }
 
-        showSpinner(true, elements); // Use the main spinner for this primary action
+        showSpinner(true, elements);
         let allGeneratedResponses = '';
         let totalInputTokens = 0, totalOutputTokens = 0;
 
@@ -145,6 +130,12 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
         updateTokenCount(elements.tokenUsageContainer, totalInputTokens, totalOutputTokens);
         elements.downloadBtn.style.display = allGeneratedResponses ? 'block' : 'none';
         showSpinner(false, elements);
+        
+        // Save the successful output to history and re-render the list
+        if (allGeneratedResponses.trim()) {
+            const newHistory = saveOutputToHistory(allGeneratedResponses);
+            renderHistoryList(newHistory, elements.historyContainer);
+        }
     }
 
     // --- Initial Setup ---
@@ -152,6 +143,11 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
     initializeQuestionCheckboxes(QUESTION_TYPES, elements.questionTypesContainer);
     switchProviderConfig(elements.providerSelect.value);
     elements.saveKeysCheckbox.checked = loadApiKeys();
+    
+    // Load and render history on page load
+    const initialHistory = loadOutputHistory();
+    renderHistoryList(initialHistory, elements.historyContainer);
+
 
     // --- Event Listener Attachments ---
 
@@ -176,4 +172,27 @@ Beachte bei der Formulierung die folgende Anweisung für das Zielniveau: "${nive
         }
     });
     elements.apiKeyInputs.forEach(input => input.addEventListener('input', () => saveApiKeys(elements.saveKeysCheckbox.checked)));
+
+    // Event listener for history container (download/delete)
+    elements.historyContainer.addEventListener('click', (e) => {
+        const downloadBtn = e.target.closest('.download-history-btn');
+        const deleteBtn = e.target.closest('.delete-history-btn');
+
+        if (downloadBtn) {
+            const timestamp = downloadBtn.dataset.timestamp;
+            const history = loadOutputHistory();
+            const item = history.find(i => i.timestamp === timestamp);
+            if (item) {
+                handleDownload(item.content);
+            }
+        }
+
+        if (deleteBtn) {
+            const timestamp = deleteBtn.dataset.timestamp;
+            if (confirm('Sind Sie sicher, dass Sie diesen Eintrag löschen möchten?')) {
+                const newHistory = deleteFromOutputHistory(timestamp);
+                renderHistoryList(newHistory, elements.historyContainer);
+            }
+        }
+    });
 });
