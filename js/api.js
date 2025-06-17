@@ -1,3 +1,5 @@
+import { cleanGermanCharacters, delay } from './utils.js'; // Add 'delay' here
+
 import { cleanGermanCharacters } from './utils.js';
 
 export const API_CONFIGS = {
@@ -68,46 +70,51 @@ export async function callApi(provider, prompt, uploadedFiles) {
         
         if (uploadedFiles.length > 0) {
             try {
-                // Step 1: Upload all files to the File API in parallel.
-                const uploadedFileMetadata = await Promise.all(
+                // Step 1: Upload all files and get their initial metadata.
+                const initialUploadResponses = await Promise.all(
                     uploadedFiles.map(fileObj => uploadFileToGemini(fileObj.rawFile, apiKey))
                 );
-                
-                // Step 2: Create fileData parts using the URIs from the upload response.
+
+                // Step 2: Poll for each file to become ACTIVE.
+                const uploadedFileMetadata = await Promise.all(
+                    initialUploadResponses.map(async (uploadedFile) => {
+                        let currentFile = uploadedFile;
+                        const maxAttempts = 10;
+                        let attempt = 0;
+
+                        // The file object from the upload response doesn't include the full state,
+                        // so we immediately fetch the full metadata.
+                        currentFile = await getFile(currentFile.name, apiKey);
+
+                        while (currentFile.state === 'PROCESSING' && attempt < maxAttempts) {
+                            attempt++;
+                            console.log(`File ${currentFile.name} is PROCESSING. Waiting... (Attempt ${attempt})`);
+                            await delay(2000); // Wait for 2 seconds
+                            currentFile = await getFile(currentFile.name, apiKey);
+                        }
+
+                        if (currentFile.state !== 'ACTIVE') {
+                            throw new Error(`File ${currentFile.name} did not become ACTIVE. Final state: ${currentFile.state}`);
+                        }
+
+                        console.log(`File ${currentFile.name} is now ACTIVE.`);
+                        return currentFile; // Return the final, ACTIVE file metadata.
+                    })
+                );
+
+                // Step 3: Create fileData parts using the URIs from the ACTIVE files.
                 const fileDataParts = uploadedFileMetadata.map(meta => ({
                     fileData: { mimeType: meta.mimeType, fileUri: meta.uri }
                 }));
-                
+
                 promptParts.push(...fileDataParts);
 
             } catch (error) {
-                console.error("Error during file upload process:", error);
-                alert(`Fehler beim Hochladen der Dateien: ${error.message}`);
+                console.error("Error during file upload and processing:", error);
+                alert(`Fehler beim Hochladen oder Verarbeiten der Dateien: ${error.message}`);
                 return null;
             }
         }
-        body = { contents: [{ parts: promptParts }] };
-
-    } else { // Logic for OpenAI, DeepSeek, etc.
-        const hasVideo = uploadedFiles.some(f => f.mime_type.startsWith('video/'));
-        const hasAudio = uploadedFiles.some(f => f.mime_type.startsWith('audio/'));
-        if (hasVideo || hasAudio) {
-            alert(`Video- und Audio-Upload wird derzeit nur für Google Gemini-Modelle unterstützt.`);
-            return null;
-        }
-
-        let promptParts = [{ type: 'text', text: prompt }];
-        if (uploadedFiles.length > 0) {
-            const imageParts = uploadedFiles.map(file => ({
-                type: 'image_url',
-                image_url: { url: `data:${file.mime_type};base64,${file.data}` }
-            }));
-            promptParts.push(...imageParts);
-        }
-
-        headers.Authorization = `Bearer ${apiKey}`;
-        body = { model: model, messages: [{ role: 'user', content: promptParts }] };
-    }
     // --- End of Provider-Specific Logic ---
 
     try {
@@ -162,4 +169,19 @@ export function extractContentAndTokens(provider, data) {
         text = "## FEHLER BEI DER ANTWORTVERARBEITUNG ##";
     }
     return { text, inputTokens, outputTokens };
+}
+
+/**
+ * Fetches the metadata for a specific file from the Gemini File API to check its state.
+ * @param {string} fileName The full resource name of the file (e.g., 'files/abc-123').
+ * @param {string} apiKey The user's Google API key.
+ * @returns {Promise<object>} The file metadata object from the API.
+ */
+async function getFile(fileName, apiKey) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/<span class="math-inline">\{fileName\}?key\=</span>{apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to get file status for ${fileName}: ${await response.text()}`);
+    }
+    return await response.json();
 }

@@ -203,3 +203,10 @@ export function deleteFromOutputHistory(timestamp) {
 }
 
 // --- END: New History Management Functions ---
+
+/**
+ * Waits for a specified number of milliseconds.
+ * @param {number} ms The number of milliseconds to wait.
+ * @returns {Promise<void>}
+ */
+export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
