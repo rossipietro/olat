@@ -1,6 +1,4 @@
-import { cleanGermanCharacters, delay } from './utils.js'; // Add 'delay' here
-
-import { cleanGermanCharacters } from './utils.js';
+import { cleanGermanCharacters, delay } from './utils.js';
 
 export const API_CONFIGS = {
     google: { 
@@ -40,7 +38,23 @@ async function uploadFileToGemini(file, apiKey) {
     
     const data = await response.json();
     console.log(`Successfully uploaded ${file.name}. URI: ${data.file.uri}`);
+    // Return the file object from the nested structure
     return data.file;
+}
+
+/**
+ * Fetches the metadata for a specific file from the Gemini File API to check its state.
+ * @param {string} fileName The full resource name of the file (e.g., 'files/abc-123').
+ * @param {string} apiKey The user's Google API key.
+ * @returns {Promise<object>} The file metadata object from the API.
+ */
+async function getFile(fileName, apiKey) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to get file status for ${fileName}: ${await response.text()}`);
+    }
+    return await response.json();
 }
 
 /**
@@ -82,8 +96,7 @@ export async function callApi(provider, prompt, uploadedFiles) {
                         const maxAttempts = 10;
                         let attempt = 0;
 
-                        // The file object from the upload response doesn't include the full state,
-                        // so we immediately fetch the full metadata.
+                        // Immediately fetch the full metadata to get the initial state.
                         currentFile = await getFile(currentFile.name, apiKey);
 
                         while (currentFile.state === 'PROCESSING' && attempt < maxAttempts) {
@@ -106,7 +119,7 @@ export async function callApi(provider, prompt, uploadedFiles) {
                 const fileDataParts = uploadedFileMetadata.map(meta => ({
                     fileData: { mimeType: meta.mimeType, fileUri: meta.uri }
                 }));
-
+                
                 promptParts.push(...fileDataParts);
 
             } catch (error) {
@@ -115,6 +128,30 @@ export async function callApi(provider, prompt, uploadedFiles) {
                 return null;
             }
         }
+        
+        // ** THIS LINE IS CRITICAL AND WAS MISSING **
+        body = { contents: [{ parts: promptParts }] };
+
+    } else { // Logic for OpenAI, DeepSeek, etc.
+        const hasVideo = uploadedFiles.some(f => f.mime_type.startsWith('video/'));
+        const hasAudio = uploadedFiles.some(f => f.mime_type.startsWith('audio/'));
+        if (hasVideo || hasAudio) {
+            alert(`Video- und Audio-Upload wird derzeit nur für Google Gemini-Modelle unterstützt.`);
+            return null;
+        }
+
+        let promptParts = [{ type: 'text', text: prompt }];
+        if (uploadedFiles.length > 0) {
+            const imageParts = uploadedFiles.map(file => ({
+                type: 'image_url',
+                image_url: { url: `data:${file.mime_type};base64,${file.data}` }
+            }));
+            promptParts.push(...imageParts);
+        }
+
+        headers.Authorization = `Bearer ${apiKey}`;
+        body = { model: model, messages: [{ role: 'user', content: promptParts }] };
+    }
     // --- End of Provider-Specific Logic ---
 
     try {
@@ -147,11 +184,17 @@ export function extractContentAndTokens(provider, data) {
         switch (provider) {
             case 'google':
                 if (data.candidates && data.candidates.length > 0) {
-                    text = data.candidates[0].content.parts[0].text;
+                    // Check if parts array exists and has text
+                    if (data.candidates[0].content.parts && data.candidates[0].content.parts[0].text) {
+                        text = data.candidates[0].content.parts[0].text;
+                    } else {
+                        text = "## ANTWORT ERHALTEN, ABER KEIN TEXTINHALT ##\nDie API hat geantwortet, aber der 'text'-Teil war leer. Dies kann bei einigen Anfragen (z.B. reinen Bildanalysen ohne textuelle Frage) vorkommen.";
+                    }
                 } else if (data.promptFeedback?.blockReason) {
                      text = `## ANTWORT GEBLOCKT ##\nGrund: ${data.promptFeedback.blockReason}\n\n${data.promptFeedback.safetyRatings.map(r => `${r.category}: ${r.probability}`).join('\n')}`;
                 } else {
-                    text = "## FEHLER ##\nKein Inhalt in der API-Antwort gefunden."
+                     text = "## FEHLER ##\nKein Inhalt in der API-Antwort gefunden. Überprüfen Sie die Konsolenausgabe für Details."
+                     console.log("Full API response with no content:", data);
                 }
                 inputTokens = data.usageMetadata?.promptTokenCount || 0;
                 outputTokens = data.usageMetadata?.candidatesTokenCount || 0;
@@ -169,19 +212,4 @@ export function extractContentAndTokens(provider, data) {
         text = "## FEHLER BEI DER ANTWORTVERARBEITUNG ##";
     }
     return { text, inputTokens, outputTokens };
-}
-
-/**
- * Fetches the metadata for a specific file from the Gemini File API to check its state.
- * @param {string} fileName The full resource name of the file (e.g., 'files/abc-123').
- * @param {string} apiKey The user's Google API key.
- * @returns {Promise<object>} The file metadata object from the API.
- */
-async function getFile(fileName, apiKey) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/<span class="math-inline">\{fileName\}?key\=</span>{apiKey}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Failed to get file status for ${fileName}: ${await response.text()}`);
-    }
-    return await response.json();
 }
