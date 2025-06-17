@@ -3,7 +3,7 @@ import { cleanGermanCharacters } from './utils.js';
 export const API_CONFIGS = {
     google: { 
         url: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}',
-        fileUrl: 'https://generativelanguage.googleapis.com/v1beta/files?key={apiKey}',
+        fileUrl: 'https://generativelanguage.googleapis.com/upload/v1beta/files?key={apiKey}',
         keyId: 'google_api_key', 
         modelId: 'google-model-select' 
     },
